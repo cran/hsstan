@@ -1,3 +1,20 @@
+# hsstan 0.7 (1 May 2020)
+
+### Major Changes
+
+- Speed up all models up to 4-5 times by using Stan's `normal_id_glm()` and
+  `bernoulli_logit_glm()`.
+- Use a simpler parametrization of the regularized horseshoe prior.
+
+### Smaller Changes and Bug Fixes
+
+- Allow using the iter and warmup options in kfold().
+- Switch to rstantools 2.0.0.
+- Fix bug in the use of the `slab.scale` parameter of `hsstan()`, as it was not
+  squared in the computation of the slab component of the regularized horseshoe
+  prior. The default value of 2 in the current version corresponds to using the
+  value 4 in versions 0.6 and earlier.
+
 # hsstan 0.6 (14 September 2019)
 
 ### Major Changes
@@ -21,11 +38,20 @@
 - Validate the options passed to `rstan::sampling()`.
 - Expand the documentation and add examples.
 
+### Notes
+
+- This version was used in:
+  - [M. Colombo][mcol], S.J. McGurnaghan, L.A.K. Blackbourn et al.,
+    Comparison of serum and urinary biomarker panels with albumin creatinin
+    ratio in the prediction of renal function decline in type 1 diabetes,
+    _Diabetologia_ (2020): 63 (4) 788-798.
+    https://doi.org/10.1007/s00125-019-05081-8
+
 # hsstan 0.5 (11 August 2019)
 
 ### Major Changes
 
-- Update the interface to `hsstan()`.
+- Update the interface of `hsstan()`.
 - Don't standardize the data inside `hsstan()`.
 - Implement the thin QR decomposition and use it by default.
 - Replace uses of `foreach()`/`%dopar%` with `parallel::mclapply()`.

@@ -3,6 +3,7 @@
 ## Copyright (c) 2017-2019 Marco Colombo and Paul McKeigue
 ##
 ## Parts of the code are based on https://github.com/jpiironen/rstan-varsel
+## Portions copyright (c) 2015-2017 Juho Piironen
 ##
 ## This program is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -176,7 +177,6 @@ fit.submodel <- function(x, sigma2, mu, chosen, xt, yt, logistic) {
 #' \dontshow{utils::example("hsstan", echo=FALSE)}
 #' \dontshow{oldopts <- options(mc.cores=2)}
 #' # continued from ?hsstan
-#'
 #' sel <- projsel(hs.biom, max.iters=3)
 #' plot(sel)
 #' \dontshow{options(oldopts)}

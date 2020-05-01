@@ -2,6 +2,9 @@
 ##
 ## Copyright (c) 2017-2019 Marco Colombo and Paul McKeigue
 ##
+## kfold.hsstan() is based on code from https://github.com/stan-dev/rstanarm
+## Portions copyright (C) 2015, 2016, 2017 Trustees of Columbia University
+##
 ## This program is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
 ## the Free Software Foundation, either version 3 of the License, or
@@ -141,7 +144,7 @@ hsstan <- function(x, covs.model, penalized=NULL, family=gaussian,
     validate.rstan.args(...)
 
     ## parameter names not to include by default in the stanfit object
-    hs.pars <- c("r1_local", "r2_local", "r1_global", "r2_global", "z", "c2")
+    hs.pars <- c("lambda", "tau", "z", "c2")
     if (keep.hs.pars)
         hs.pars <- NA
 
@@ -261,13 +264,12 @@ hsstan <- function(x, covs.model, penalized=NULL, family=gaussian,
 #'       the indices of the withdrawn observations for each fold. This is not
 #'       present if `store.fits=FALSE`.}
 #' \item{data}{the dataset used in fitting the model (before withdrawing
-#'             observations). This is not present if `store.fits=FALSE`.}
+#'       observations). This is not present if `store.fits=FALSE`.}
 #'
 #' @examples
 #' \donttest{
 #' \dontshow{utils::example("hsstan", echo=FALSE)}
 #' # continued from ?hsstan
-#'
 #' # only 2 folds for speed of example
 #' folds <- rep(1:2, length.out=length(df$Y))
 #' cv.biom <- kfold(hs.biom, folds=folds, cores=2)

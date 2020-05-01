@@ -1,5 +1,8 @@
 # Hierarchical Shrinkage Stan Models for Biomarker Selection
 
+[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/hsstan)](https://cran.r-project.org/package=hsstan)
+[![CRAN\_Downloads\_Badge](https://cranlogs.r-pkg.org/badges/hsstan)](https://cran.r-project.org/package=hsstan)
+
 The **hsstan** package provides linear and logistic regression models penalized
 with hierarchical shrinkage priors for selection of biomarkers. Models are
 fitted with [Stan](https://mc-stan.org), which allows to perform full Bayesian
@@ -79,6 +82,12 @@ print(sel.biom, digits=4)
 ```
 
 ### References
+
+* [M. Colombo][mcol], S.J. McGurnaghan, L.A.K. Blackbourn et al.,
+  Comparison of serum and urinary biomarker panels with albumin creatinin
+  ratio in the prediction of renal function decline in type 1 diabetes,
+  _Diabetologia_ (2020) 63 (4): 788-798.
+  https://doi.org/10.1007/s00125-019-05081-8
 
 * [M. Colombo][mcol], E. Valo, S.J. McGurnaghan et al.,
   Biomarkers associated with progression of renal disease in type 1 diabetes,

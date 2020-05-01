@@ -2,6 +2,12 @@
 ##
 ## Copyright (c) 2019 Marco Colombo
 ##
+## Parts of the code are based on https://avehtari.github.io/bayes_R2/bayes_R2.html
+## Portions copyright (c) 2019 Aki Vehtari, Andrew Gelman, Ben Goodrich, Jonah Gabry
+##
+## Parts of the code are based on https://github.com/stan-dev/rstanarm
+## Portions copyright (c) 2015, 2016, 2017 Trustees of Columbia University
+##
 ## This program is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
 ## the Free Software Foundation, either version 3 of the License, or
@@ -208,9 +214,11 @@ posterior_predict.hsstan <- function(object, newdata=NULL, nsamples=NULL,
 #' measures are cross-validated or not.
 #'
 #' @examples
+#' \donttest{
 #' \dontshow{utils::example("hsstan", echo=FALSE)}
 #' # continued from ?hsstan
 #' posterior_performance(hs.biom, cores=1)
+#' }
 #'
 #' @export
 posterior_performance <- function(obj, prob=0.95, summary=TRUE,
@@ -285,7 +293,6 @@ posterior_performance <- function(obj, prob=0.95, summary=TRUE,
 #' \dontshow{utils::example("hsstan", echo=FALSE)}
 #' \dontshow{oldopts <- options(mc.cores=2)}
 #' # continued from ?hsstan
-#'
 #' loo(hs.biom)
 #' waic(hs.biom)
 #' \dontshow{options(oldopts)}
@@ -352,7 +359,6 @@ waic.hsstan <- function(x, cores=getOption("mc.cores"), ...) {
 #' \dontshow{utils::example("hsstan", echo=FALSE)}
 #' \dontshow{oldopts <- options(mc.cores=2)}
 #' # continued from ?hsstan
-#'
 #' bayes_R2(hs.biom)
 #' loo_R2(hs.biom)
 #' \dontshow{options(oldopts)}
@@ -377,15 +383,11 @@ bayes_R2.hsstan <- function(object, prob=0.95, summary=TRUE, ...) {
     return(R2)
 }
 
-#' @export
-loo_R2 <- function(object, ...) {
-  # temporary generic until available in rstantools or loo
-  UseMethod("loo_R2")
-}
-
 #' @rdname bayes_R2.hsstan
+#' @importFrom rstantools loo_R2
 #' @method loo_R2 hsstan
 #' @aliases loo_R2
+#' @export loo_R2
 #' @export
 loo_R2.hsstan <- function(object, prob=0.95, summary=TRUE, ...) {
     validate.samples(object)
