@@ -1,3 +1,27 @@
+# hsstan 0.8 (29 June 2020)
+
+### Major Changes
+
+- Add the `sub.idx` option to `posterior_performance()` to select the
+  observations to be used in the computation of the performance measures.
+- Add the `start.from` option to run `projsel()` to start the selection
+  procedure from a submodel different from the set of unpenalized covariates.
+- Allow interaction terms in the formula for unpenalized covariates.
+- Speed up matrix multiplications in `posterior_linpred()` and `projsel()`:
+  this also benefits all other functions that use `posterior_linpred()`, such
+  as `log_lik()`, `posterior_predict()`, `posterior_performance()` and others.
+
+### Smaller Changes and Bug Fixes
+
+- Fix parallelized loop boundaries in `posterior_performance()` for Windows.
+- Speed up `posterior_performance()` for gaussian models.
+- Handle correctly the case in which a variable is mentioned both among the
+  unpenalized covariates and the penalized predictors.
+- Fix bug in handling of a factor variable with multiple levels in the set of
+  penalized predictors.
+- Use the correct sigma term in the computation of the elpd for gaussian models.
+- Allow running `projsel()` on models with no penalized predictors.
+
 # hsstan 0.7 (1 May 2020)
 
 ### Major Changes
@@ -8,8 +32,8 @@
 
 ### Smaller Changes and Bug Fixes
 
-- Allow using the iter and warmup options in kfold().
-- Switch to rstantools 2.0.0.
+- Allow using the `iter` and `warmup` options in `kfold()`.
+- Switch to `rstantools` 2.0.0.
 - Fix bug in the use of the `slab.scale` parameter of `hsstan()`, as it was not
   squared in the computation of the slab component of the regularized horseshoe
   prior. The default value of 2 in the current version corresponds to using the
@@ -19,6 +43,7 @@
 
 ### Major Changes
 
+- First version to be available on CRAN.
 - Add the `kfold()` and  `posterior_summary()` functions.
 - Implement parallelization on Windows using `parallel::parLapply()`.
 - Remove the deprecated `sample.stan()` and `sample.stan.cv()`.
@@ -100,7 +125,7 @@
 
 - Add option to set the `adapt_delta` parameter and change the default for all
   models from 0.95 to 0.99.
-- Allow to control the prior scale for the unpenalised variables.
+- Allow to control the prior scale for the unpenalized variables.
 
 ### Smaller Changes and Bug Fixes
 

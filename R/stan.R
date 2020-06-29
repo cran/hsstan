@@ -21,30 +21,6 @@
 ##=============================================================================
 
 
-#' Return the posterior means of the regression coefficients
-#'
-#' @param samples An object of class `stanfit`.
-#' @param coeff.names Vector of names for the coefficients.
-#'
-#' @return
-#' A list with two named elements: `unpenalized` for the posterior means
-#' of the unpenalized covariates, and `penalized` for the posterior means
-#' of the penalized predictors (which can be `NULL` for baseline models).
-#'
-#' @keywords internal
-get.coefficients <- function(samples, coeff.names) {
-    beta.u <- colMeans(as.matrix(samples, pars="beta_u"))
-    beta.p <- tryCatch(colMeans(as.matrix(samples, pars="beta_p")),
-                       error=function(e) return(NULL))
-    stopifnot(length(c(beta.u, beta.p)) == length(coeff.names))
-    u.idx <- 1:length(beta.u)
-    names(beta.u) <- coeff.names[u.idx]
-    if (!is.null(beta.p))
-        names(beta.p) <- coeff.names[-u.idx]
-
-    return(list(unpenalized=beta.u, penalized=beta.p))
-}
-
 #' Hierarchical shrinkage models
 #'
 #' Run the No-U-Turn Sampler (NUTS) as implemented in Stan to fit a hierarchical
@@ -56,7 +32,8 @@ get.coefficients <- function(samples, coeff.names) {
 #'        unit variance.
 #' @param covs.model Formula containing the unpenalized covariates.
 #' @param penalized Names of the variables to be used as penalized predictors.
-#'        If `NULL` or an empty vector, a model with only unpenalized
+#'        Any variable that is already part of the `covs.model` formula will be
+#'        penalized. If `NULL` or an empty vector, a model with only unpenalized
 #'        covariates is fitted.
 #' @param family Type of model fitted: either `gaussian()` for linear regression
 #'        (default) or `binomial()` for logistic regression.
@@ -73,7 +50,7 @@ get.coefficients <- function(samples, coeff.names) {
 #'        (2000 by default).
 #' @param warmup Number of warmup iterations per chain (by default, half the
 #'        total number of iterations).
-#' @param scale.u Prior scale (standard deviation) for the unpenalised
+#' @param scale.u Prior scale (standard deviation) for the unpenalized
 #'        covariates.
 #' @param regularized If `TRUE` (default), the regularized horseshoe prior
 #'        is used as opposed to the original horseshoe prior.
@@ -86,14 +63,15 @@ get.coefficients <- function(samples, coeff.names) {
 #'        observations; for linear regression only, it's further multiplied by
 #'        the residual standard deviation `sigma`.
 #' @param global.df Number of degrees of freedom for the global shrinkage
-#'        parameter (ignored if `regularized=FALSE`).
+#'        parameter (ignored if `regularized=FALSE`). Larger values induce more
+#'        shrinkage.
 #' @param slab.scale Scale of the regularization parameter (ignored if
 #'        `regularized=FALSE`).
 #' @param slab.df Number of degrees of freedom of the regularization parameter
 #'        (ignored if `regularized=FALSE`).
 #' @param keep.hs.pars Whether the parameters for the horseshoe prior should be
 #'        kept in the `stanfit` object returned (`FALSE` by default).
-#' @param ... Further arguments passed to \code{\link[rstan]{sampling}},
+#' @param ... Further arguments passed to [rstan::sampling()],
 #'        such as `chains` (4 by default), `cores` (the value of
 #'        `options("mc.cores")` by default), `refresh` (`iter / 10` by default).
 #'
@@ -109,7 +87,7 @@ get.coefficients <- function(samples, coeff.names) {
 #' \item{model.terms}{a list of names for the outcome variable, the unpenalized
 #'       covariates and the penalized predictors.}
 #' \item{family}{the `family` object used.}
-#' \item{qr}{Whether the QR factorization was performed.}
+#' \item{hsstan.settings}{the optional settings used in the model.}
 #'
 #' @seealso
 #' [kfold()] for cross-validating a fitted object.
@@ -124,7 +102,7 @@ get.coefficients <- function(samples, coeff.names) {
 #'                   chains=2, iter=250)
 #' \dontshow{options(oldopts)}
 #'
-#' @importFrom stats gaussian model.matrix reformulate
+#' @importFrom stats gaussian
 #' @export
 hsstan <- function(x, covs.model, penalized=NULL, family=gaussian,
                    iter=2000, warmup=floor(iter / 2),
@@ -166,11 +144,13 @@ hsstan <- function(x, covs.model, penalized=NULL, family=gaussian,
     }
 
     ## create the design matrix
-    unpenalized <- model.terms$unpenalized
-    X <- model.matrix(reformulate(c(unpenalized, penalized)), data=x)
+    X <- ordered.model.matrix(x, model.terms$unpenalized, model.terms$penalized)
     N <- nrow(X)
     P <- ncol(X)
-    U <- P - length(penalized)
+
+    ## number of penalized and unpenalized columns in the design matrix
+    K <- length(expand.terms(x, model.terms$penalized)[-1])
+    U <- P - K
 
     ## thin QR decomposition
     if (P > N) qr <- FALSE
@@ -219,9 +199,20 @@ hsstan <- function(x, covs.model, penalized=NULL, family=gaussian,
             }
         }
 
-        betas <- get.coefficients(samples, colnames(X))
-        obj <- list(stanfit=samples, betas=betas, call=call,
-                    data=x, model.terms=model.terms, family=family, qr=qr)
+        ## store the hierarchical shrinkage settings
+        opts <- list(adapt.delta=adapt.delta, qr=qr, seed=seed, scale.u=scale.u)
+        if (K > 0)
+            opts <- c(opts, regularized=regularized, nu=nu, par.ratio=par.ratio,
+                      global.scale=global.scale, global.df=global.df,
+                      slab.scale=slab.scale, slab.df=slab.df)
+
+        ## compute the posterior means of the regression coefficients
+        betas <- list(unpenalized=colMeans(as.matrix(samples, pars="beta_u")),
+                      penalized=tryCatch(colMeans(as.matrix(samples,
+                                                            pars="beta_p")),
+                                         error=function(e) NULL))
+        obj <- list(stanfit=samples, betas=betas, call=call, data=x,
+                    model.terms=model.terms, family=family, hsstan.settings=opts)
         class(obj) <- "hsstan"
     }
 
@@ -244,7 +235,7 @@ hsstan <- function(x, covs.model, penalized=NULL, family=gaussian,
 #'        `options("mc.cores")` by default). The cross-validation folds will
 #'        be distributed to the available cores, and the Markov chains for each
 #'        model will be run sequentially.
-#' @param ... Further arguments passed to \code{\link[rstan]{sampling}}.
+#' @param ... Further arguments passed to [rstan::sampling()].
 #'
 #' @return
 #' An object with classes `kfold` and `loo` that has a similar structure as the

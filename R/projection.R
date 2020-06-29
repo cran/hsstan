@@ -38,7 +38,7 @@ lm_proj <- function(x, fit, sigma2, indproj, is.logistic) {
     S <- ncol(fit)
 
     ## pick the Q columns of x that form the projection subspace
-    xp <- x[, indproj] # matrix of dimension N x Q
+    xp <- x[, indproj, drop=FALSE] # matrix of dimension N x Q
 
     ## logistic regression model
     if (is.logistic) {
@@ -56,7 +56,7 @@ lm_proj <- function(x, fit, sigma2, indproj, is.logistic) {
         wp <- matrix(unlist(wp, use.names=FALSE), ncol=S)
 
         ## estimate the KL divergence between full and projected model
-        fitp <- binomial()$linkinv(xp %*% wp)
+        fitp <- binomial()$linkinv(multiplyAB(xp, wp))
         kl <- 0.5 * mean(colMeans(binomial()$dev.resids(fit, fitp, 1)))
         sigma2p <- 1
     }
@@ -64,10 +64,10 @@ lm_proj <- function(x, fit, sigma2, indproj, is.logistic) {
     ## linear regression model
     else {
         ## solve the projection equations
-        wp <- solve(crossprod(xp, xp), crossprod(xp, fit)) # Q x S matrix
+        wp <- solve(crossprod(xp, xp), multiplyAtB(xp, fit)) # Q x S matrix
 
         ## fit of the projected model
-        fitp <- xp %*% wp
+        fitp <- multiplyAB(xp, wp)
 
         ## estimate the KL divergence between full and projected model
         sigma2p <- sigma2 + colMeans((fit - fitp)^2)
@@ -114,10 +114,10 @@ choose.next <- function(x, sigma2, fit, fitp, chosen, is.logistic) {
     }
 
     ## score test
-    dinv.link <- t(fitp * (1 - fitp))
-    yminusexp <- t(fit - fitp)
-    U <- colMeans(yminusexp %*% x[, notchosen] / sigma2)
-    V <- colMeans(dinv.link %*% x[, notchosen]^2 / sigma2)
+    yminusexp <- fit - fitp
+    dinv.link <- fitp * (1 - fitp)
+    U <- colMeans(multiplyAtB(yminusexp, x[, notchosen]))
+    V <- colMeans(multiplyAtB(dinv.link, x[, notchosen]^2))
     idx.selected <- which.max(U^2 / V)
     return(notchosen[idx.selected])
 }
@@ -134,21 +134,31 @@ choose.next <- function(x, sigma2, fit, fitp, chosen, is.logistic) {
 #'
 #' @keywords internal
 fit.submodel <- function(x, sigma2, mu, chosen, xt, yt, logistic) {
-
     ## projected parameters
     submodel <- lm_proj(x, mu, sigma2, chosen, logistic)
-    eta <- xt %*% submodel$w
+    eta <- multiplyAB(xt, submodel$w)
+    return(c(submodel, elpd=elpd(yt, eta, submodel$sigma2, logistic)))
+}
 
-    ## expected log predictive density on test set
+#' Expected log predictive density
+#'
+#' @param yt Outcome variable.
+#' @param eta Matrix of linear predictors, with as many rows as the number of
+#'        observations.
+#' @param sigma2 Residual variance (1 for logistic regression).
+#' @param logistic Set to `TRUE` for a logistic regression model.
+#'
+#' @noRd
+elpd <- function(yt, eta, sigma2, logistic) {
     if (logistic)
         pd <- stats::dbinom(yt, 1, binomial()$linkinv(eta), log=TRUE)
-    else
+    else {
+        sigma <- sqrt(sigma2)
         pd <- t(cbind(sapply(1:nrow(eta),
                              function(z) stats::dnorm(yt[z], eta[z, ],
-                                                      sqrt(sigma2), log=TRUE))))
-    elpd <- sum(rowMeans(pd))
-
-    return(list(fit=submodel$fit, kl=submodel$kl, elpd=elpd))
+                                                      sigma, log=TRUE))))
+    }
+    sum(rowMeans(pd))
 }
 
 #' Forward selection minimizing KL-divergence in projection
@@ -156,19 +166,24 @@ fit.submodel <- function(x, sigma2, mu, chosen, xt, yt, logistic) {
 #' @param obj Object of class `hsstan`.
 #' @param max.iters Maximum number of iterations (number of predictors selected)
 #'        after which the selection procedure should stop.
+#' @param start.from Vector of variable names to be used in the starting
+#'        submodel. If `NULL` (default), selection starts from the set of
+#'        unpenalized covariates if the model contains penalized predictors,
+#'        otherwise selection starts from the intercept-only model.
 #' @param out.csv If not `NULL`, the name of a CSV file to save the
 #'        output to.
 #'
 #' @return
 #' A data frame of class `projsel` where each row corresponds to a
 #' forward-selected submodel that contains all variables listed up to that row.
+#' Attribute `start.from` reports the predictors in the initial model.
 #' The data frame contains the following columns:
 #' \item{var}{names of the variables selected.}
 #' \item{kl}{KL-divergence from the full model to the submodel.}
 #' \item{rel.kl.null}{relative explanatory power of predictors starting from the
 #'       intercept-only model.}
-#' \item{rel.kl}{relative explanatory power of predictors starting from the model
-#'       containing unpenalized covariates.}
+#' \item{rel.kl}{relative explanatory power of predictors starting from the
+#'       initial submodel.}
 #' \item{elpd}{the expected log predictive density of the submodels.}
 #' \item{delta.elpd}{the difference in elpd from the full model.}
 #'
@@ -184,19 +199,26 @@ fit.submodel <- function(x, sigma2, mu, chosen, xt, yt, logistic) {
 #'
 #' @importFrom utils write.csv
 #' @export
-projsel <- function(obj, max.iters=30, out.csv=NULL) {
+projsel <- function(obj, max.iters=30, start.from=NULL,
+                    out.csv=NULL) {
     validate.hsstan(obj)
     validate.samples(obj)
-    if (length(obj$model.terms$penalized) == 0)
-        stop("Model doesn't contain penalized predictors.")
 
     x <- xt <- validate.newdata(obj, obj$data)
     yt <- obj$data[[obj$model.terms$outcome]]
     is.logistic <- is.logistic(obj)
     sigma2 <- if (is.logistic) 1 else as.matrix(obj$stanfit, pars="sigma")^2
-    U <- length(obj$betas$unpenalized)
-    K <- length(obj$betas$penalized)
-    P <- U + K
+
+    ## set of variables in the initial submodel
+    vsf <- validate.start.from(obj, start.from)
+    start.from <- vsf$start.from
+    chosen <- start.idx <- vsf$idx
+
+    ## number of model parameters (including intercept)
+    P <- sum(sapply(obj$betas, length))
+
+    ## number of iterations to run
+    K <- min(P - length(start.idx), max.iters)
 
     message(sprintf("%58s  %8s %11s", "Model", "KL", "ELPD"))
     report.iter <- function(msg, kl, elpd)
@@ -207,17 +229,18 @@ projsel <- function(obj, max.iters=30, out.csv=NULL) {
 
     ## intercept only model
     sub <- fit.submodel(x, sigma2, fit, 1, xt, yt, is.logistic)
-    kl.elpd <- c(sub$kl, sub$elpd)
+    kl.elpd <- cbind(sub$kl, sub$elpd)
     report.iter("Intercept only", sub$kl, sub$elpd)
 
-    ## start from the model having only unpenalized variables
-    chosen <- 1:U
-    sub <- fit.submodel(x, sigma2, fit, chosen, xt, yt, is.logistic)
-    kl.elpd <- rbind(kl.elpd, c(sub$kl, sub$elpd))
-    report.iter("Unpenalized covariates", sub$kl, sub$elpd)
+    ## initial submodel with the set of chosen covariates
+    if (length(start.idx) > 1) {
+        sub <- fit.submodel(x, sigma2, fit, chosen, xt, yt, is.logistic)
+        kl.elpd <- rbind(kl.elpd, c(sub$kl, sub$elpd))
+        report.iter("Initial submodel", sub$kl, sub$elpd)
+    }
 
     ## add variables one at a time
-    for (iter in 1:K) {
+    for (iter in seq_len(K)) {
         sel.idx <- choose.next(x, sigma2, fit, sub$fit, chosen, is.logistic)
         chosen <- c(chosen, sel.idx)
 
@@ -225,25 +248,27 @@ projsel <- function(obj, max.iters=30, out.csv=NULL) {
         sub <- fit.submodel(x, sigma2, fit, chosen, xt, yt, is.logistic)
         kl.elpd <- rbind(kl.elpd, c(sub$kl, sub$elpd))
         report.iter(colnames(x)[sel.idx], sub$kl, sub$elpd)
-
-        if (iter == max.iters)
-            break
     }
 
     ## evaluate the full model if selection stopped before reaching it
-    full <- if (length(chosen) == P)
-        sub else fit.submodel(x, sigma2, fit, 1:P, xt, yt, is.logistic)
+    full.elpd <- if (length(chosen) == P)
+        sub$elpd else elpd(yt, t(posterior_linpred(obj)), sigma2, is.logistic)
 
     kl <- kl.elpd[, 1]
+    rel.kl <- c(NA, if (length(kl) > 1) 1 - kl[-1] / kl[2])
+    if (length(rel.kl) == 2 && is.nan(rel.kl[2]))
+        rel.kl[2] <- 1
+
     res <- data.frame(var=c("Intercept only",
-                            "Unpenalized covariates",
-                            colnames(x)[setdiff(chosen, 1:U)]),
+                            if (length(start.idx) > 1) "Initial submodel",
+                            colnames(x)[setdiff(chosen, start.idx)]),
                       kl=kl,
                       rel.kl.null=1 - kl / kl[1],
-                      rel.kl=c(NA, 1 - kl[-1] / kl[2]),
+                      rel.kl=rel.kl,
                       elpd=kl.elpd[, 2],
-                      delta.elpd=kl.elpd[, 2] - full$elpd,
-                      stringsAsFactors=FALSE)
+                      delta.elpd=kl.elpd[, 2] - full.elpd,
+                      stringsAsFactors=FALSE, row.names=NULL)
+    attr(res, "start.from") <- start.from
     if (!is.null(out.csv))
         write.csv(file=out.csv, res, row.names=FALSE)
 

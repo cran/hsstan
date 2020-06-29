@@ -62,12 +62,10 @@ validate.samples <- function(obj) {
 #'        is returned.
 #'
 #' @return
-#' A model matrix corresponding to the variables used in the model.
+#' A design matrix corresponding to the variables used in the model.
 #'
-#' @importFrom stats model.matrix reformulate
 #' @noRd
 validate.newdata <- function(obj, newdata) {
-
     if (is.null(newdata))
         newdata <- obj$data
     else if (!inherits(newdata, c("data.frame", "matrix")))
@@ -82,9 +80,9 @@ validate.newdata <- function(obj, newdata) {
         stop("'newdata' contains missing values.")
 
     ## this adds the intercept column back
-    newdata <- model.matrix(reformulate(vars[-1]), as.data.frame(newdata))
-
-    return(newdata)
+    ordered.model.matrix(as.data.frame(newdata),
+                         obj$model.terms$unpenalized,
+                         obj$model.terms$penalized)
 }
 
 #' Validate a model formula
@@ -109,14 +107,14 @@ validate.model <- function(model, penalized) {
         stop("No outcome variable specified in the model.")
     if (attr(tt, "intercept") == 0)
         stop("Models with no intercept are not supported.")
-    if (any(grepl(":", attr(tt, "term.labels"))))
-        stop("Interaction terms are not supported.")
     if (length(penalized) > 0 && !is.character(penalized))
         stop("'penalized' must be a character vector.")
-    vars <- rownames(attr(tt, "factors"))
-    if (is.null(vars))
-        vars <- as.character(model)[2]
-    return(list(outcome=vars[1], unpenalized=vars[-1], penalized=penalized))
+    if (any(grepl("[:*]", penalized)))
+        stop("Interaction terms in penalized predictors are not supported.")
+    penalized <- setdiff(unique(trimws(penalized)), "")
+    return(list(outcome=as.character(model)[2],
+                unpenalized=setdiff(attr(tt, "term.labels"), penalized),
+                penalized=penalized))
 }
 
 #' Validate the model data
@@ -154,6 +152,8 @@ validate.data <- function(x, model) {
 #'
 #' @noRd
 validate.variables <- function(x, variables) {
+    ## unpack interaction terms
+    variables <- unique(unlist(strsplit(as.character(variables), ":")))
     if (length(variables) == 0)
         stop("No predictors present in the model.")
     var.match <- match(variables, colnames(x))
@@ -225,6 +225,32 @@ validate.family <- function(family, y) {
     return(family)
 }
 
+#' Validate a vector of indices
+#'
+#' @param x Vector to be checked.
+#' @param N Maximum valid index.
+#' @param name Name of the vector to report in error messages.
+#' @param throw.duplicates Whether the function should throw if the vector
+#'        contains duplicate elements (`TRUE` by default).
+#'
+#' @return
+#' Throws an error if the given vector is not an integer vector or contains
+#' missing, out of bounds or duplicate indices (if `throw.duplicates` is `TRUE`).
+#'
+#' @noRd
+validate.indices <- function(x, N, name, throw.duplicates=TRUE) {
+    if (anyNA(x))
+        stop("'", name, "' contains missing values.")
+    if (!is.numeric(x) || NCOL(x) > 1 || any(x != as.integer(x)))
+        stop("'", name, "' must be an integer vector.")
+    if (length(x) < 2)
+        stop("'", name, "' must contain at least two elements.")
+    if (any(x < 1 | x > N))
+        stop("'", name, "' contains out of bounds indices.")
+    if (throw.duplicates && any(duplicated(x)))
+        stop("'", name, "' contains duplicate indices.")
+}
+
 #' Validate the cross-validation folds
 #'
 #' @param folds Folds to be checked or `NULL`.
@@ -238,16 +264,60 @@ validate.family <- function(family, y) {
 validate.folds <- function(folds, N) {
     if (is.null(folds))
         return(rep(1, N))
-    if (anyNA(folds))
-        stop("'folds' contains missing values.")
-    if (!is.numeric(folds) || any(folds != as.integer(folds)))
-        stop("'folds' must be an integer vector.")
+    validate.indices(folds, N, "folds", throw.duplicates=FALSE)
     if (length(folds) != N)
         stop("'folds' should have length ", N, ".")
     K <- length(unique(folds))
     if (!all(1:K %in% folds))
         stop("'folds' must contain all indices up to ", K, ".")
     folds <- as.integer(folds)
+}
+
+#' Validate start.from
+#'
+#' Check that the predictor names provided is a valid subset of the variables
+#' used in the model.
+#'
+#' @param obj An object of class `hsstan`.
+#' @param start.from Vector to be checked.
+#'
+#' @return
+#' A list of two elements: the names of the model terms matching `start.from`
+#' and a vector of indices corresponding to the names listed in `start.from`.
+#' Throws an error if any of the names mentioned does not match those available
+#' in the model terms.
+#'
+#' @noRd
+validate.start.from <- function(obj, start.from) {
+    unp.terms <- obj$model.terms$unpenalized
+    unp.betas <- names(obj$betas$unpenalized)
+    mod.terms <- c(unp.terms, obj$model.terms$penalized)
+    mod.betas <- c(unp.betas, names(obj$betas$penalized))
+    start.from <- setdiff(start.from, "")
+    if (is.null(start.from)) {
+        if (length(obj$model.terms$penalized) > 0)
+            return(list(start.from=unp.terms, idx=seq_along(unp.betas)))
+        else
+            return(list(start.from=character(0), idx=1))
+    }
+    if (length(start.from) == 0)
+        return(list(start.from=character(0), idx=1))
+    if (anyNA(start.from))
+        stop("'start.from' contains missing values.")
+    var.match <- match(start.from, mod.terms)
+    if (anyNA(var.match))
+        stop("'start.from' contains ", collapse(start.from[is.na(var.match)]),
+             ", which cannot be matched.")
+
+    ## unpack interaction terms so that also main effects are matched
+    start.from <- mod.terms[mod.terms %in%
+                            c(start.from, unlist(strsplit(start.from, ":")))]
+    chosen <- expand.terms(obj$data, start.from)
+
+    ## also consider interaction terms in reverse order
+    chosen <- c(chosen, sapply(strsplit(chosen[grep(":", chosen)], ":"),
+                               function(z) c(z, paste(rev(z), collapse=":"))))
+    return(list(start.from=start.from, idx=which(mod.betas %in% chosen)))
 }
 
 #' Validate adapt.delta
@@ -338,6 +408,45 @@ get.pars <- function(object, pars) {
     return(pars)
 }
 
+#' Create a design matrix with all unpenalized predictors first
+#'
+#' This is required as `model.matrix` puts the interaction terms after the
+#' penalized predictors, but the Stan models expects all unpenalized terms to
+#' appear before the penalized ones.
+#'
+#' @param x Data frame containing the variables of interest.
+#' @param unpenalized Vector of variable names for the unpenalized covariates.
+#' @param penalized Vector of variable names for the penalized predictors.
+#'
+#' @return
+#' A design matrix with all unpenalized covariates (including interaction terms)
+#' before the penalized predictors.
+#'
+#' @importFrom stats model.matrix reformulate
+#' @noRd
+ordered.model.matrix <- function(x, unpenalized, penalized) {
+    X <- model.matrix(reformulate(c(unpenalized, penalized)), data=x)
+    if (any(grepl("[:*]", unpenalized)))
+        X <- X[, c(expand.terms(x, unpenalized), expand.terms(x, penalized)[-1])]
+    return(X)
+}
+
+#' Expand variable names into formula terms
+#'
+#' @param x Data frame containing the variables of interest.
+#' @param variables Vector of variable names.
+#'
+#' @return
+#' A vector of variable names expanded by factor levels and interaction terms.
+#'
+#' @importFrom stats model.matrix reformulate
+#' @noRd
+expand.terms <- function(x, variables) {
+    if (length(variables) == 0)
+        return(character(0))
+    colnames(model.matrix(reformulate(variables), x[1, ]))
+}
+
 #' Summarize a vector
 #'
 #' @param x A numerical vector.
@@ -378,6 +487,31 @@ is.logistic <- function(obj) {
 #' @noRd
 collapse <- function(x) {
     paste0("'", x, "'", collapse=", ")
+}
+
+#' Fast computation of correlations
+#'
+#' This provides a loopless version of the computation of the correlation
+#' coefficient between observed and predicted outcomes.
+#'
+#' @param y Vector of observed outcome.
+#' @param x Matrix with as many columns as the number of elements in `y`,
+#'          where each row corresponds to a predicted outcome.
+#'
+#' @return
+#' A vector of correlations with as many elements as the number of rows in `x`.
+#'
+#' @noRd
+fastCor <- function(y, x) {
+    yx <- rbind(y, x)
+    if (.Machine$sizeof.pointer == 8) {
+        yx <- yx - rowMeans(yx)
+        yx <- yx / sqrt(rowSums(yx^2))
+        corr <- tcrossprod(yx, yx)
+    } else {
+        corr <- stats::cor(yx)
+    }
+    return(corr[-1, 1])
 }
 
 #' Log of sum of exponentials
