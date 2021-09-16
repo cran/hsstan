@@ -1,8 +1,8 @@
 Package: hsstan
 Type: Package
 Title: Hierarchical Shrinkage Stan Models for Biomarker Selection
-Version: 0.8
-Date: 2020-06-29
+Version: 0.8.1
+Date: 2021-09-16
 Authors@R: c(person("Marco", "Colombo",
                     email="mar.colombo13@gmail.com", role=c("aut", "cre"),
                     comment=c(ORCID="0000-0001-6672-0623")),
@@ -26,20 +26,22 @@ BugReports: https://github.com/mcol/hsstan/issues
 LazyData: yes
 Biarch: true
 Depends: R (>= 3.6)
-Imports: ggplot2, loo (>= 2.1.0), parallel, pROC, Rcpp, methods, rstan
-        (>= 2.18.1), rstantools (>= 2.0.0), stats, utils
+Imports: ggplot2, loo (>= 2.1.0), parallel, pROC, Rcpp, RcppParallel
+        (>= 5.0.1), methods, rstan (>= 2.18.1), rstantools (>= 2.0.0),
+        stats, utils
 LinkingTo: BH (>= 1.66.0.1), Rcpp (>= 0.12.15), RcppEigen (>=
-        0.3.3.4.0), StanHeaders (>= 2.17.2), rstan (>= 2.18.1)
+        0.3.3.4.0), RcppParallel (>= 5.0.1), StanHeaders (>= 2.21.0),
+        rstan (>= 2.18.1)
 Suggests: testthat (>= 2.1.0)
 ByteCompile: yes
 NeedsCompilation: yes
 SystemRequirements: GNU make
 Encoding: UTF-8
 RoxygenNote: 7.1.1
-Packaged: 2020-06-29 15:51:11 UTC; mcolombo
+Packaged: 2021-09-15 21:55:26 UTC; mcolombo
 Author: Marco Colombo [aut, cre] (<https://orcid.org/0000-0001-6672-0623>),
   Paul McKeigue [aut] (<https://orcid.org/0000-0002-5217-1034>),
   Athina Spiliopoulou [ctb] (<https://orcid.org/0000-0002-5929-6585>)
 Maintainer: Marco Colombo <mar.colombo13@gmail.com>
 Repository: CRAN
-Date/Publication: 2020-06-29 17:40:07 UTC
+Date/Publication: 2021-09-16 07:30:08 UTC

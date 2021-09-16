@@ -1,6 +1,6 @@
 ##=============================================================================
 ##
-## Copyright (c) 2017-2019 Marco Colombo and Paul McKeigue
+## Copyright (c) 2017-2021 Marco Colombo and Paul McKeigue
 ##
 ## Parts of the code are based on https://github.com/jpiironen/rstan-varsel
 ## Portions copyright (c) 2015-2017 Juho Piironen
@@ -203,6 +203,7 @@ projsel <- function(obj, max.iters=30, start.from=NULL,
                     out.csv=NULL) {
     validate.hsstan(obj)
     validate.samples(obj)
+    validate.nonnegative.scalar(max.iters, "max.iters", int=TRUE)
 
     x <- xt <- validate.newdata(obj, obj$data)
     yt <- obj$data[[obj$model.terms$outcome]]
@@ -248,6 +249,12 @@ projsel <- function(obj, max.iters=30, start.from=NULL,
         sub <- fit.submodel(x, sigma2, fit, chosen, xt, yt, is.logistic)
         kl.elpd <- rbind(kl.elpd, c(sub$kl, sub$elpd))
         report.iter(colnames(x)[sel.idx], sub$kl, sub$elpd)
+
+        ## check if the current submodel is fully saturated
+        if (sub$kl < 1e-8 && iter < K) {
+            message("Fully saturated model reached, selection terminated.")
+            break()
+        }
     }
 
     ## evaluate the full model if selection stopped before reaching it

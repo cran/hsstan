@@ -170,6 +170,8 @@ posterior_linpred.hsstan <- function(object, transform=FALSE,
 posterior_predict.hsstan <- function(object, newdata=NULL, nsamples=NULL,
                                      seed=NULL, ...) {
     validate.samples(object)
+    if (!is.null(nsamples))
+        validate.positive.scalar(nsamples, "nsamples", int=TRUE)
 
     ## extract a random subset of the posterior samples
     if (!is.null(seed))
@@ -177,8 +179,6 @@ posterior_predict.hsstan <- function(object, newdata=NULL, nsamples=NULL,
     num.samples <- nsamples(object)
     samp <- sample(num.samples, min(num.samples, nsamples))
     nsamples <- length(samp)
-    if (nsamples == 0)
-        stop("'nsamples' must be a positive integer.")
 
     ## generate the posterior predictions
     mu <- posterior_linpred(object, newdata, transform=TRUE)[samp, , drop=FALSE]
@@ -367,7 +367,7 @@ waic.hsstan <- function(x, cores=getOption("mc.cores"), ...) {
 #' Andrew Gelman, Ben Goodrich, Jonah Gabry and Aki Vehtari (2019),
 #' R-squared for Bayesian regression models,
 #' _The American Statistician_, 73 (3), 307-309.
-#' \url{https://doi.org/10.1080/00031305.2018.1549100}
+#' \doi{10.1080/00031305.2018.1549100}
 #'
 #' Aki Vehtari, Andrew Gelman, Ben Goodrich and Jonah Gabry (2019),
 #' Bayesian R2 and LOO-R2.

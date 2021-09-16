@@ -1,3 +1,18 @@
+# hsstan 0.8.1 (16 September 2021)
+
+### Smaller Changes and Bug Fixes
+
+- Fix bug in `projsel()` if the number of observations in the dataset is
+  smaller than both the number of available predictors and the maximum
+  number of iterations in the selection procedure.
+- Add workaround for
+  [rstantools issue #77](https://github.com/stan-dev/rstantools/issues/77)
+  to make the base models run again correctly with the compilation changes
+  introduced in `rstan` 2.21.
+- Add `RcppParallel` to Imports and LinkingTo, as future versions of
+  `rstan` require to link to the Intel TBB library.
+- Improve validation of scalar inputs.
+
 # hsstan 0.8 (29 June 2020)
 
 ### Major Changes
@@ -21,6 +36,14 @@
   penalized predictors.
 - Use the correct sigma term in the computation of the elpd for gaussian models.
 - Allow running `projsel()` on models with no penalized predictors.
+
+### Notes
+
+- This version was used in:
+  - [M. Colombo][mcol], A. Asadi Shehni, I. Thoma et al.,
+    Quantitative levels of serum N-glycans in type 1 diabetes and their
+    association with kidney disease,
+    [_Glycobiology_ (2021) 31 (5): 613-623](https://doi.org/10.1093/glycob/cwaa106).
 
 # hsstan 0.7 (1 May 2020)
 
@@ -69,8 +92,7 @@
   - [M. Colombo][mcol], S.J. McGurnaghan, L.A.K. Blackbourn et al.,
     Comparison of serum and urinary biomarker panels with albumin creatinin
     ratio in the prediction of renal function decline in type 1 diabetes,
-    _Diabetologia_ (2020): 63 (4) 788-798.
-    https://doi.org/10.1007/s00125-019-05081-8
+    [_Diabetologia_ (2020) 63 (4): 788-798](https://doi.org/10.1007/s00125-019-05081-8).
 
 # hsstan 0.5 (11 August 2019)
 
@@ -151,13 +173,11 @@
 - This version was used in:
   - [M. Colombo][mcol], E. Valo, S.J. McGurnaghan et al.,
     Biomarkers associated with progression of renal disease in type 1 diabetes,
-    _Diabetologia_ (2019) 62 (9): 1616-1627.
-    https://doi.org/10.1007/s00125-019-4915-0
+    [_Diabetologia_ (2019) 62 (9): 1616-1627](https://doi.org/10.1007/s00125-019-4915-0).
   - [A. Spiliopoulou][athina], [M. Colombo][mcol], D. Plant et al.,
     Association of response to TNF inhibitors in rheumatoid arthritis with
     quantitative trait loci for CD40 and CD39,
-    _Annals of the Rheumatic Diseases_ (2019) 78: 1055-1061.
-    https://doi.org/10.1136/annrheumdis-2018-214877
+    [_Annals of the Rheumatic Diseases_ (2019) 78: 1055-1061](https://doi.org/10.1136/annrheumdis-2018-214877).
 
 # hsstan 0.1 (14 June 2018)
 
