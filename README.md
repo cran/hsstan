@@ -1,6 +1,6 @@
 # Hierarchical Shrinkage Stan Models for Biomarker Selection
 
-[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/hsstan)](https://cran.r-project.org/package=hsstan)
+[![CRAN\_Status\_Badge](https://www.r-pkg.org/badges/version/hsstan)](https://cran.r-project.org/package=hsstan)
 [![CRAN\_Downloads\_Badge](https://cranlogs.r-pkg.org/badges/hsstan)](https://cran.r-project.org/package=hsstan)
 
 The **hsstan** package provides linear and logistic regression models penalized
@@ -8,7 +8,7 @@ with hierarchical shrinkage priors for selection of biomarkers. Models are
 fitted with [Stan](https://mc-stan.org), which allows to perform full Bayesian
 inference ([Carpenter et al. (2017)](https://doi.org/10.18637/jss.v076.i01)).
 
-It implements the horseshoe and regularized horseshoe priors [(Piironen and
+It implements the horseshoe and regularized horseshoe priors ([Piironen and
 Vehtari (2017)](https://doi.org/10.1214/17-EJS1337SI)), and the projection
 predictive selection approach to recover a sparse set of predictive biomarkers
 ([Piironen, Paasiniemi and Vehtari (2020)](https://doi.org/10.1214/20-EJS1711)).
@@ -138,4 +138,4 @@ print(sel.biom, digits=4)
   Biomarkers associated with progression of renal disease in type 1 diabetes,
   [_Diabetologia_ (2019) 62 (9): 1616-1627](https://doi.org/10.1007/s00125-019-4915-0).
 
-[mcol]: https://pm2.phs.ed.ac.uk/~mcolombo/
+[mcol]: https://github.com/mcol

@@ -1,3 +1,10 @@
+# hsstan 0.8.2 (13 January 2024)
+
+### Smaller Changes and Bug Fixes
+
+- Update deprecated syntax for future rstan compatibility (thanks to
+  Andrew Johnson for the patch).
+
 # hsstan 0.8.1 (16 September 2021)
 
 ### Smaller Changes and Bug Fixes
@@ -183,5 +190,5 @@
 
 - First release.
 
-[mcol]:   https://pm2.phs.ed.ac.uk/~mcolombo/
-[athina]: http://www.homepages.ed.ac.uk/aspiliop/
+[mcol]:   https://github.com/mcol
+[athina]: https://precmed.cphs.mvm.ed.ac.uk/athina/
